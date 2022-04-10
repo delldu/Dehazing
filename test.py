@@ -1,3 +1,4 @@
+import math
 import torch
 import time
 import argparse
@@ -9,6 +10,25 @@ from torchvision.utils import save_image as imwrite
 from tqdm import tqdm
 
 import pdb
+DEHAZE_ZEROPAD_TIMES = 16
+
+def zeropad_tensor(tensor, times=32):
+    B, C, H, W = tensor.shape
+    Hnew = int(times * math.ceil(H / times))
+    Wnew = int(times * math.ceil(W / times))
+    temp = tensor.new_zeros(B, C, Hnew, Wnew)
+    temp[:, :, 0:H, 0:W] = tensor
+    return temp
+
+def model_forward(model, input_tensor):
+    # zeropad for model
+    H, W = input_tensor.size(2), input_tensor.size(3)
+    if H % DEHAZE_ZEROPAD_TIMES != 0 or W % DEHAZE_ZEROPAD_TIMES != 0:
+        input_tensor = zeropad_tensor(input_tensor, times=DEHAZE_ZEROPAD_TIMES)
+    with torch.no_grad():
+        output_tensor = model(input_tensor)
+    return output_tensor[:, :, 0:H, 0:W]
+
 
 # --- Parse hyper-parameters train --- #
 parser = argparse.ArgumentParser(description="RCAN-Dehaze-teacher")
@@ -48,7 +68,7 @@ try:
 except:
     print("--- no weight loaded ---")
 
-model = torch.jit.script(model)
+# model = torch.jit.script(model)
 model = model.to(device)
 model.eval()
 
@@ -70,8 +90,9 @@ for i, hazy in enumerate(val_loader):
 
     start = time.time()
 
-    with torch.no_grad():
-        img_tensor = model(hazy)
+    # with torch.no_grad():
+    #     img_tensor = model(hazy)
+    img_tensor = model_forward(model, hazy)
     # hazy.size() -- [1, 3, 1200, 1600], hazy.min(), hazy.max() -- 0.2627, 0.9882
     # (Pdb) img_tensor.size() -- [1, 3, 1200, 1600]
     # (Pdb) img_tensor.min(), img_tensor.max() -- (0.0026, 0.9884)
