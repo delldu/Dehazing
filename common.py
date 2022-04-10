@@ -3,9 +3,8 @@ import torch.nn as nn
 
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
-    return nn.Conv2d(
-        in_channels, out_channels, kernel_size,
-        padding=(kernel_size//2), bias=bias)
+    return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
+
 
 class MeanShift(nn.Conv2d):
     def __init__(self, rgb_range, rgb_mean, rgb_std, sign=-1):
@@ -17,30 +16,29 @@ class MeanShift(nn.Conv2d):
         self.bias.data.div_(std)
         self.requires_grad = False
 
-class BasicBlock(nn.Sequential):
-    def __init__(
-        self, in_channels, out_channels, kernel_size, stride=1, bias=False,
-        bn=True, act=nn.ReLU(True)):
 
-        m = [nn.Conv2d(
-            in_channels, out_channels, kernel_size,
-            padding=(kernel_size//2), stride=stride, bias=bias)
-        ]
-        if bn: m.append(nn.BatchNorm2d(out_channels))
-        if act is not None: m.append(act)
+class BasicBlock(nn.Sequential):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, bias=False, bn=True, act=nn.ReLU(True)):
+
+        m = [nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), stride=stride, bias=bias)]
+        if bn:
+            m.append(nn.BatchNorm2d(out_channels))
+        if act is not None:
+            m.append(act)
         super(BasicBlock, self).__init__(*m)
 
+
 class ResBlock(nn.Module):
-    def __init__(
-        self, conv, n_feat, kernel_size,
-        bias=True, bn=False, act=nn.ReLU(True), res_scale=1):
+    def __init__(self, conv, n_feat, kernel_size, bias=True, bn=False, act=nn.ReLU(True), res_scale=1):
 
         super(ResBlock, self).__init__()
         m = []
         for i in range(2):
             m.append(conv(n_feat, n_feat, kernel_size, bias=bias))
-            if bn: m.append(nn.BatchNorm2d(n_feat))
-            if i == 0: m.append(act)
+            if bn:
+                m.append(nn.BatchNorm2d(n_feat))
+            if i == 0:
+                m.append(act)
 
         self.body = nn.Sequential(*m)
         self.res_scale = res_scale
@@ -50,4 +48,3 @@ class ResBlock(nn.Module):
         res += x
 
         return res
-

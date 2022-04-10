@@ -11,17 +11,17 @@ from tqdm import tqdm
 import pdb
 
 # --- Parse hyper-parameters train --- #
-parser = argparse.ArgumentParser(description='RCAN-Dehaze-teacher')
-parser.add_argument('--data_dir', type=str, default='')
-parser.add_argument('--model_save_dir', type=str, default='output')
+parser = argparse.ArgumentParser(description="RCAN-Dehaze-teacher")
+parser.add_argument("--data_dir", type=str, default="")
+parser.add_argument("--model_save_dir", type=str, default="output")
 args = parser.parse_args()
 
-val_dataset = os.path.join(args.data_dir, 'NTIRE2021_Test_Hazy')
+val_dataset = os.path.join(args.data_dir, "NTIRE2021_Test_Hazy")
 
 # --- output picture and check point --- #
 if not os.path.exists(args.model_save_dir):
     os.makedirs(args.model_save_dir)
-output_dir=os.path.join(args.model_save_dir,'')
+output_dir = os.path.join(args.model_save_dir, "")
 
 # --- Gpu device --- #
 device_ids = [Id for Id in range(torch.cuda.device_count())]
@@ -29,7 +29,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # --- Define the network --- #
 model = DehazeModel()
-print('model parameters:', sum(param.numel() for param in model.parameters()))
+print("model parameters:", sum(param.numel() for param in model.parameters()))
 
 val_dataset = dehaze_val_dataset(val_dataset)
 val_loader = DataLoader(dataset=val_dataset, batch_size=1, shuffle=False, num_workers=0)
@@ -40,13 +40,13 @@ val_loader = DataLoader(dataset=val_dataset, batch_size=1, shuffle=False, num_wo
 # --- Load the network weight --- #
 try:
     # module.tail1.1.bias
-    weights = torch.load( 'models/best.pkl')
-    model.load_state_dict({k.replace('module.','') : v for k, v in weights.items()})
+    weights = torch.load("models/best.pkl")
+    model.load_state_dict({k.replace("module.", ""): v for k, v in weights.items()})
     # model.load_state_dict(weights)
-    print('--- weight loaded ---')
+    print("--- weight loaded ---")
 
 except:
-    print('--- no weight loaded ---')
+    print("--- no weight loaded ---")
 
 model = torch.jit.script(model)
 model = model.to(device)
@@ -83,10 +83,4 @@ for i, hazy in enumerate(val_loader):
     imwrite(img_tensor, output_file)
 
 time_cost = float(sum(time_list) / len(time_list))
-print('running time per image: ', time_cost)
-
-
-
-
-
-
+print("running time per image: ", time_cost)
