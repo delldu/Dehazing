@@ -1,7 +1,7 @@
 import torch
 import time
 import argparse
-from model import fusion_refine,Discriminator
+from model import DehazeModel,Discriminator
 from train_dataset import dehaze_train_dataset
 from test_dataset import dehaze_test_dataset
 from val_dataset import dehaze_val_dataset
@@ -53,7 +53,7 @@ device_ids = [Id for Id in range(torch.cuda.device_count())]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # --- Define the network --- #
-MyEnsembleNet = fusion_refine(args.imagenet_model, args.rcan_model)
+MyEnsembleNet = DehazeModel()
 print('MyEnsembleNet parameters:', sum(param.numel() for param in MyEnsembleNet.parameters()))
 DNet = Discriminator()
 print('# Discriminator parameters:', sum(param.numel() for param in DNet.parameters()))

@@ -1,40 +1,22 @@
 import torch
 import time
 import argparse
-from model import fusion_refine,Discriminator
-from train_dataset import dehaze_train_dataset
-from test_dataset import dehaze_test_dataset
+from model import DehazeModel
 from val_dataset import dehaze_val_dataset
 from torch.utils.data import DataLoader
 import os
-from torchvision.models import vgg16
-from utils_test import to_psnr,to_ssim_skimage
-from tensorboardX import SummaryWriter
-import torch.nn.functional as F
-from perceptual import LossNetwork
 from torchvision.utils import save_image as imwrite
-from pytorch_msssim import msssim
+from tqdm import tqdm
+
+import pdb
+
 # --- Parse hyper-parameters train --- #
 parser = argparse.ArgumentParser(description='RCAN-Dehaze-teacher')
-parser.add_argument('-learning_rate', help='Set the learning rate', default=1e-4, type=float)
-parser.add_argument('-train_batch_size', help='Set the training batch size', default=20, type=int)
-parser.add_argument('-train_epoch', help='Set the training epoch', default=10000, type=int)
-parser.add_argument('--train_dataset', type=str, default='')
 parser.add_argument('--data_dir', type=str, default='')
-parser.add_argument('--model_save_dir', type=str, default='./output_result')
-parser.add_argument('--log_dir', type=str, default=None)
-# --- Parse hyper-parameters test --- #
-parser.add_argument('--test_dataset', type=str, default='')
-parser.add_argument('--predict_result', type=str, default='./output_result/picture/')
-parser.add_argument('-test_batch_size', help='Set the testing batch size', default=1,  type=int)
-parser.add_argument('--vgg_model', default='', type=str, help='load trained model or not')
-parser.add_argument('--imagenet_model', default='', type=str, help='load trained model or not')
-parser.add_argument('--rcan_model', default='', type=str, help='load trained model or not')
+parser.add_argument('--model_save_dir', type=str, default='output')
 args = parser.parse_args()
 
 val_dataset = os.path.join(args.data_dir, 'NTIRE2021_Test_Hazy')
-predict_result= args.predict_result
-test_batch_size=args.test_batch_size
 
 # --- output picture and check point --- #
 if not os.path.exists(args.model_save_dir):
@@ -46,52 +28,62 @@ device_ids = [Id for Id in range(torch.cuda.device_count())]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # --- Define the network --- #
-MyEnsembleNet = fusion_refine(args.imagenet_model, args.rcan_model)
-print('MyEnsembleNet parameters:', sum(param.numel() for param in MyEnsembleNet.parameters()))
-
+model = DehazeModel()
+print('model parameters:', sum(param.numel() for param in model.parameters()))
 
 val_dataset = dehaze_val_dataset(val_dataset)
 val_loader = DataLoader(dataset=val_dataset, batch_size=1, shuffle=False, num_workers=0)
 
 # --- Multi-GPU --- #
-MyEnsembleNet = MyEnsembleNet.to(device)
-MyEnsembleNet= torch.nn.DataParallel(MyEnsembleNet, device_ids=device_ids)
-
+# model= torch.nn.DataParallel(model, device_ids=device_ids)
 
 # --- Load the network weight --- #
 try:
-    MyEnsembleNet.load_state_dict(torch.load( 'best.pkl'))
+    # module.tail1.1.bias
+    weights = torch.load( 'models/best.pkl')
+    model.load_state_dict({k.replace('module.','') : v for k, v in weights.items()})
+    # model.load_state_dict(weights)
     print('--- weight loaded ---')
+
 except:
     print('--- no weight loaded ---')
 
+model = torch.jit.script(model)
+model = model.to(device)
+model.eval()
+
 # --- Strat testing --- #
-with torch.no_grad():
-    img_list = []
-    time_list = []
-    MyEnsembleNet.eval()
-    imsave_dir = output_dir
-    if not os.path.exists(imsave_dir):
-        os.makedirs(imsave_dir)
-    for batch_idx, hazy in enumerate(val_loader):
-        # print(len(val_loader))
-        start = time.time()
-        hazy = hazy.to(device)
-        
-        img_tensor = MyEnsembleNet(hazy)
+time_list = []
 
-        end = time.time()
-        time_list.append((end - start))
-        img_list.append(img_tensor)
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-        imwrite(img_list[batch_idx], os.path.join(imsave_dir, str(batch_idx)+'.png'))
-    time_cost = float(sum(time_list) / len(time_list))
-    print('running time per image: ', time_cost)
-                
+file_list = val_loader.dataset.list_test
+#  val_loader.dataset.list_test -- ['31.png', '32.png', '33.png', '34.png', '35.png']
 
-# writer.close()
+progress_bar = tqdm(total=len(file_list))
+for i, hazy in enumerate(val_loader):
+    progress_bar.update(1)
 
+    # print(len(val_loader))
+    hazy = hazy.to(device)
 
+    start = time.time()
+
+    with torch.no_grad():
+        img_tensor = model(hazy)
+    # hazy.size() -- [1, 3, 1200, 1600], hazy.min(), hazy.max() -- 0.2627, 0.9882
+    # (Pdb) img_tensor.size() -- [1, 3, 1200, 1600]
+    # (Pdb) img_tensor.min(), img_tensor.max() -- (0.0026, 0.9884)
+
+    end = time.time()
+    time_list.append((end - start))
+
+    output_file = f"{output_dir}/{os.path.basename(file_list[i])}"
+    imwrite(img_tensor, output_file)
+
+time_cost = float(sum(time_list) / len(time_list))
+print('running time per image: ', time_cost)
 
 
 
