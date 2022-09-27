@@ -12,7 +12,6 @@
 __version__ = "1.0.0"
 
 import os
-import time
 from tqdm import tqdm
 import torch
 

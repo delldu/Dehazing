@@ -9,9 +9,9 @@
 # ***
 # ************************************************************************************/
 #
-import torch.nn as nn
 import math
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from typing import List
 
@@ -20,18 +20,6 @@ import pdb
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
-
-
-class sub_pixel(nn.Module):
-    def __init__(self, scale, act=False):
-        super(sub_pixel, self).__init__()
-        modules = []
-        modules.append(nn.PixelShuffle(scale))
-        self.body = nn.Sequential(*modules)
-
-    def forward(self, x):
-        x = self.body(x)
-        return x
 
 
 ## Channel Attention (CA) Layer
@@ -300,13 +288,6 @@ class Res2Net(nn.Module):
         # [1, 1024, 75, 100], [1, 256, 300, 400], [1, 512, 150, 200]
 
         return x, x_layer1, x_layer2
-
-
-######################
-# decoder
-######################
-def default_conv(in_channels, out_channels, kernel_size, bias=True):
-    return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
 
 
 class PALayer(nn.Module):
