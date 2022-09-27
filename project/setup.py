@@ -22,7 +22,7 @@ setup(
     description="image/video dehaze package",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/delldu/DeepGuidedFilter.git",
+    url="https://github.com/delldu/Dehazing.git",
     packages=["image_dehaze"],
     package_data={"image_dehaze": ["models/image_dehaze.pth"]},
     include_package_data=True,

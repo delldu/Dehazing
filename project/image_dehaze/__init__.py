@@ -24,6 +24,7 @@ import pdb
 
 DEHAZE_ZEROPAD_TIMES = 16
 
+
 def get_model():
     """Create model."""
 
@@ -37,6 +38,7 @@ def get_model():
     model = model.to(device)
     model.eval()
 
+    print(f"Running on {device} ...")
     model = torch.jit.script(model)
 
     todos.data.mkdir("output")
@@ -46,12 +48,17 @@ def get_model():
     return model, device
 
 
-def model_forward(model, device, input_tensor, multi_times):
+def model_forward(model, device, input_tensor, multi_times=16):
     # zeropad for model
     H, W = input_tensor.size(2), input_tensor.size(3)
     if H % multi_times != 0 or W % multi_times != 0:
         input_tensor = todos.data.zeropad_tensor(input_tensor, times=multi_times)
-    output_tensor = todos.model.forward(model, device, input_tensor)
+
+    torch.cuda.synchronize()
+    with torch.jit.optimized_execution(False):
+        output_tensor = todos.model.forward(model, device, input_tensor)
+    torch.cuda.synchronize()
+
     return output_tensor[:, :, 0:H, 0:W]
 
 
@@ -74,7 +81,7 @@ def image_server(name, host="localhost", port=6379):
         print(f"  dehaze {input_file} ...")
         try:
             input_tensor = todos.data.load_tensor(input_file)
-            output_tensor = model_forward(model, device, input_tensor, DEHAZE_ZEROPAD_TIMES)
+            output_tensor = model_forward(model, device, input_tensor)
             todos.data.save_tensor(output_tensor, output_file)
             return True
         except Exception as e:
@@ -104,7 +111,7 @@ def image_predict(input_files, output_dir):
 
         # pytorch recommand clone.detach instead of torch.Tensor(input_tensor)
         orig_tensor = input_tensor.clone().detach()
-        predict_tensor = model_forward(model, device, input_tensor, DEHAZE_ZEROPAD_TIMES)
+        predict_tensor = model_forward(model, device, input_tensor)
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
         todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
@@ -135,7 +142,7 @@ def video_service(input_file, output_file, targ):
 
         # convert tensor from 1x4xHxW to 1x3xHxW
         input_tensor = input_tensor[:, 0:3, :, :]
-        output_tensor = model_forward(model, device, input_tensor, DEHAZE_ZEROPAD_TIMES)
+        output_tensor = model_forward(model, device, input_tensor)
 
         temp_output_file = "{}/{:06d}.png".format(output_dir, no)
         todos.data.save_tensor(output_tensor, temp_output_file)

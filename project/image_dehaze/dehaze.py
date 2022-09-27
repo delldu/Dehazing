@@ -17,6 +17,7 @@ from typing import List
 
 import pdb
 
+
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
 
@@ -397,10 +398,10 @@ class Enhancer(nn.Module):
 
         x104 = F.avg_pool2d(dehaze, 4)
 
-        x1010 = F.interpolate(self.relu(self.conv1010(x101)), size=shape_out, mode='nearest')
-        x1020 = F.interpolate(self.relu(self.conv1020(x102)), size=shape_out, mode='nearest')
-        x1030 = F.interpolate(self.relu(self.conv1030(x103)), size=shape_out, mode='nearest')
-        x1040 = F.interpolate(self.relu(self.conv1040(x104)), size=shape_out, mode='nearest')
+        x1010 = F.interpolate(self.relu(self.conv1010(x101)), size=shape_out, mode="nearest")
+        x1020 = F.interpolate(self.relu(self.conv1020(x102)), size=shape_out, mode="nearest")
+        x1030 = F.interpolate(self.relu(self.conv1030(x103)), size=shape_out, mode="nearest")
+        x1040 = F.interpolate(self.relu(self.conv1040(x104)), size=shape_out, mode="nearest")
 
         dehaze = torch.cat((x1010, x1020, x1030, x1040, dehaze), 1)
         dehaze = self.tanh(self.refine3(dehaze))
@@ -462,4 +463,3 @@ class DehazeModel(nn.Module):
         x = torch.cat([feature, rcan_out], 1)
         feat_hazy = self.tail1(x)
         return feat_hazy.clamp(0.0, 1.0)
-
