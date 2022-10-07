@@ -21,9 +21,6 @@ from . import dehaze
 
 import pdb
 
-DEHAZE_ZEROPAD_TIMES = 16
-
-
 def get_model():
     """Create model."""
 
@@ -53,10 +50,7 @@ def model_forward(model, device, input_tensor, multi_times=16):
     if H % multi_times != 0 or W % multi_times != 0:
         input_tensor = todos.data.zeropad_tensor(input_tensor, times=multi_times)
 
-    torch.cuda.synchronize()
-    with torch.jit.optimized_execution(False):
-        output_tensor = todos.model.forward(model, device, input_tensor)
-    torch.cuda.synchronize()
+    output_tensor = todos.model.forward(model, device, input_tensor)
 
     return output_tensor[:, :, 0:H, 0:W]
 
