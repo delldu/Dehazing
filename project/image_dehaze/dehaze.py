@@ -449,7 +449,7 @@ class DehazeModel(nn.Module):
         # Define max GPU/CPU memory -- 5G
         max_h = 2048
         max_W = 2048
-        multi_times = 8
+        multi_times = 16
 
         # Need Resize ?
         B, C, H, W = x.size()
