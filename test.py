@@ -64,6 +64,8 @@ try:
     model.load_state_dict({k.replace("module.", ""): v for k, v in weights.items()})
     # model.load_state_dict(weights)
     print("--- weight loaded ---")
+    # torch.save(model.state_dict(),'/tmp/image_dehaze.pth')
+
 
 except:
     print("--- no weight loaded ---")
