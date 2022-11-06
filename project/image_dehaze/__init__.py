@@ -20,22 +20,31 @@ from . import dehaze
 import pdb
 
 
-def get_model():
+def get_tvm_model():
+    """
+    TVM model base on torch.jit.trace, much more orignal than torch.jit.script
+    That's why we construct it from DeepGuidedFilterAdvanced
+    """
+
+    model = dehaze.DehazeBackbone()
+    device = todos.model.get_device()
+    model = model.to(device)
+    model.eval()
+    print(f"Running tvm model model on {device} ...")
+
+    return model, device
+
+
+def get_dehaze_model():
     """Create model."""
 
-    model_path = "models/image_dehaze.pth"
-    cdir = os.path.dirname(__file__)
-    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
-
     model = dehaze.DehazeModel()
-    todos.model.load(model, checkpoint)
     device = todos.model.get_device()
     model = model.to(device)
     model.eval()
 
     print(f"Running on {device} ...")
     model = torch.jit.script(model)
-
     todos.data.mkdir("output")
     if not os.path.exists("output/image_dehaze.torch"):
         model.save("output/image_dehaze.torch")
@@ -48,7 +57,7 @@ def image_predict(input_files, output_dir):
     todos.data.mkdir(output_dir)
 
     # load model
-    model, device = get_model()
+    model, device = get_dehaze_model()
 
     # load files
     image_filenames = todos.data.load_files(input_files)

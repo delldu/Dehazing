@@ -9,6 +9,7 @@
 # ***
 # ************************************************************************************/
 #
+import os
 import math
 import torch
 import torch.nn as nn
@@ -431,52 +432,60 @@ class Dehaze(nn.Module):
         return dout2
 
 
-class DehazeModel(nn.Module):
+class DehazeBackbone(nn.Module):
     def __init__(self):
-        super(DehazeModel, self).__init__()
+        super(DehazeBackbone, self).__init__()
+        # Define max GPU/CPU memory -- 5G(2048x2048), 4G(1024x1024)
+        self.MAX_H = 1024
+        self.MAX_W = 1024
+        self.MAX_TIMES = 16
+
         self.feature_extract = Dehaze()
         self.pre_trained_rcan = rcan()
         self.tail1 = nn.Sequential(nn.ReflectionPad2d(3), nn.Conv2d(60, 3, kernel_size=7, padding=0), nn.Tanh())
+        self.load_weights()
 
-    def forward_x(self, input):
+    def load_weights(self, model_path="models/image_dehaze.pth"):
+        cdir = os.path.dirname(__file__)
+        checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+        self.load_state_dict(torch.load(checkpoint))
+
+    def forward(self, input):
         feature = self.feature_extract(input)
         rcan_out = self.pre_trained_rcan(input)
         x = torch.cat([feature, rcan_out], 1)
         feat_hazy = self.tail1(x)
         return feat_hazy.clamp(0.0, 1.0)
 
-    def forward(self, x):
-        # Define max GPU/CPU memory -- 5G
-        max_h = 2048
-        max_W = 2048
-        multi_times = 16
 
+class DehazeModel(nn.Module):
+    def __init__(self):
+        super(DehazeModel, self).__init__()
+        self.backbone = DehazeBackbone().eval()
+
+    def forward(self, x):
         # Need Resize ?
         B, C, H, W = x.size()
-        if H > max_h or W > max_W:
-            s = min(max_h / H, max_W / W)
+        if H > self.backbone.MAX_H or W > self.backbone.MAX_W:
+            s = min(self.backbone.MAX_H / H, self.backbone.MAX_W / W)
             SH, SW = int(s * H), int(s * W)
             resize_x = F.interpolate(x, size=(SH, SW), mode="bilinear", align_corners=False)
         else:
             resize_x = x
 
-        # Need Zero Pad ?
-        ZH, ZW = resize_x.size(2), resize_x.size(3)
-        if ZH % multi_times != 0 or ZW % multi_times != 0:
-            NH = multi_times * math.ceil(ZH / multi_times)
-            NW = multi_times * math.ceil(ZW / multi_times)
-            resize_zeropad_x = resize_x.new_zeros(B, C, NH, NW)
-            resize_zeropad_x[:, :, 0:ZH, 0:ZW] = resize_x
+        # Need Pad ?
+        PH, PW = resize_x.size(2), resize_x.size(3)
+        if PH % self.backbone.MAX_TIMES != 0 or PW % self.backbone.MAX_TIMES != 0:
+            r_pad = self.backbone.MAX_TIMES - (PW % self.backbone.MAX_TIMES)
+            b_pad = self.backbone.MAX_TIMES - (PH % self.backbone.MAX_TIMES)
+            resize_pad_x = F.pad(resize_x, (0, r_pad, 0, b_pad), mode="replicate")
         else:
-            resize_zeropad_x = resize_x
+            resize_pad_x = resize_x
 
-        # MS Begin
-        y = self.forward_x(resize_zeropad_x)
-        del resize_zeropad_x, resize_x  # Release memory !!!
+        with torch.no_grad():
+            y = self.backbone(resize_pad_x)
 
-        y = y[:, :, 0:ZH, 0:ZW]  # Remove Zero Pads
-        if ZH != H or ZW != W:
-            y = F.interpolate(y, size=(H, W), mode="bilinear", align_corners=False)
-        # MS End
+        y = y[:, :, 0:PH, 0:PW]  # Remove Pads
+        y = F.interpolate(y, size=(H, W), mode="bilinear", align_corners=False)  # Remove Resize
 
         return y
