@@ -20,7 +20,6 @@ import image_dehaze
 
 SO_B, SO_C, SO_H, SO_W = 1, 3, 512, 512
 
-
 def compile():
     model, device = image_dehaze.get_tvm_model()
 

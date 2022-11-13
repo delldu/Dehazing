@@ -23,7 +23,7 @@ if __name__ == "__main__":
     model, device = image_dehaze.get_dehaze_model()
 
     N = 100
-    B, C, H, W = 1, 3, 1024, 1024
+    B, C, H, W = 1, 3, model.max_h, model.max_w
 
     mean_time = 0
     progress_bar = tqdm(total=N)
@@ -36,9 +36,7 @@ if __name__ == "__main__":
         # print("x: ", x.size())
 
         start_time = time.time()
-        with torch.jit.optimized_execution(False):
-            with torch.no_grad():
-                y = model(x.to(device))
+        y = model(x.to(device))
         torch.cuda.synchronize()
         mean_time += time.time() - start_time
 

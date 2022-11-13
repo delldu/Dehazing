@@ -80,8 +80,7 @@ class ResidualGroup(nn.Module):
 
     def forward(self, x):
         res = self.body(x)
-        res = res + x
-        return res
+        return res + x
 
 
 class rcan(nn.Module):
@@ -115,8 +114,7 @@ class rcan(nn.Module):
     def forward(self, x):
         x_feat = self.head(x)
         res = self.body(x_feat)
-        out_feat = res + x_feat
-        return out_feat
+        return res + x_feat
 
 
 ###################################################################################################################
@@ -171,7 +169,7 @@ class Bottle2neck(nn.Module):
         out = self.bn1(out)
         out = self.relu(out)
 
-        spx = torch.split(out, self.width, 1)
+        spx = torch.split(out, self.width, dim=1)
 
         # Support torch.jit.script, self.nums == 3
         # for i in range(self.nums):
@@ -206,16 +204,13 @@ class Bottle2neck(nn.Module):
         #     out = torch.cat((out, spx[self.nums]), 1)
         # else: # self.stype == 'stage':
         #     out = torch.cat((out, self.pool(spx[self.nums])), 1)
-        out = torch.cat((out, self.pool(spx[self.nums])), 1)
+        out = torch.cat((out, self.pool(spx[self.nums])), dim=1)
 
         out = self.conv3(out)
         out = self.bn3(out)
         residual = self.downsample(x)
 
-        out += residual
-        out = self.relu(out)
-
-        return out
+        return self.relu(out + residual)
 
 
 class Res2Net(nn.Module):
@@ -368,16 +363,13 @@ class Enhancer(nn.Module):
     def forward(self, x):
         dehaze = self.relu((self.refine1(x)))
         dehaze = self.relu((self.refine2(dehaze)))
-        shape_out = dehaze.data.size()
 
+        shape_out = dehaze.size()
         shape_out = shape_out[2:4]
 
         x101 = F.avg_pool2d(dehaze, 32)
-
         x102 = F.avg_pool2d(dehaze, 16)
-
         x103 = F.avg_pool2d(dehaze, 8)
-
         x104 = F.avg_pool2d(dehaze, 4)
 
         x1010 = F.interpolate(self.relu(self.conv1010(x101)), size=shape_out, mode="nearest")
@@ -385,7 +377,7 @@ class Enhancer(nn.Module):
         x1030 = F.interpolate(self.relu(self.conv1030(x103)), size=shape_out, mode="nearest")
         x1040 = F.interpolate(self.relu(self.conv1040(x104)), size=shape_out, mode="nearest")
 
-        dehaze = torch.cat((x1010, x1020, x1030, x1040, dehaze), 1)
+        dehaze = torch.cat((x1010, x1020, x1030, x1040, dehaze), dim=1)
         dehaze = self.tanh(self.refine3(dehaze))
 
         return dehaze
@@ -418,11 +410,11 @@ class Dehaze(nn.Module):
         x = self.up_block1(x_mid)
         x = self.attention1(x)
 
-        x = torch.cat((x, x_layer2), 1)
+        x = torch.cat((x, x_layer2), dim=1)
         x = self.up_block1(x)
         x = self.attention2(x)
 
-        x = torch.cat((x, x_layer1), 1)
+        x = torch.cat((x, x_layer1), dim=1)
         x = self.up_block1(x)
         x = self.up_block1(x)
 
@@ -432,9 +424,9 @@ class Dehaze(nn.Module):
         return dout2
 
 
-class DehazeBackbone(nn.Module):
+class DehazeModel(nn.Module):
     def __init__(self):
-        super(DehazeBackbone, self).__init__()
+        super(DehazeModel, self).__init__()
         # Define max GPU/CPU memory -- 5G(2048x2048), 4G(1024x1024)
         self.MAX_H = 1024
         self.MAX_W = 1024
@@ -453,39 +445,7 @@ class DehazeBackbone(nn.Module):
     def forward(self, input):
         feature = self.feature_extract(input)
         rcan_out = self.pre_trained_rcan(input)
-        x = torch.cat([feature, rcan_out], 1)
+        x = torch.cat([feature, rcan_out], dim=1)
         feat_hazy = self.tail1(x)
         return feat_hazy.clamp(0.0, 1.0)
 
-
-class DehazeModel(nn.Module):
-    def __init__(self):
-        super(DehazeModel, self).__init__()
-        self.backbone = DehazeBackbone().eval()
-
-    def forward(self, x):
-        # Need Resize ?
-        B, C, H, W = x.size()
-        if H > self.backbone.MAX_H or W > self.backbone.MAX_W:
-            s = min(self.backbone.MAX_H / H, self.backbone.MAX_W / W)
-            SH, SW = int(s * H), int(s * W)
-            resize_x = F.interpolate(x, size=(SH, SW), mode="bilinear", align_corners=False)
-        else:
-            resize_x = x
-
-        # Need Pad ?
-        PH, PW = resize_x.size(2), resize_x.size(3)
-        if PH % self.backbone.MAX_TIMES != 0 or PW % self.backbone.MAX_TIMES != 0:
-            r_pad = self.backbone.MAX_TIMES - (PW % self.backbone.MAX_TIMES)
-            b_pad = self.backbone.MAX_TIMES - (PH % self.backbone.MAX_TIMES)
-            resize_pad_x = F.pad(resize_x, (0, r_pad, 0, b_pad), mode="replicate")
-        else:
-            resize_pad_x = resize_x
-
-        with torch.no_grad():
-            y = self.backbone(resize_pad_x)
-
-        y = y[:, :, 0:PH, 0:PW]  # Remove Pads
-        y = F.interpolate(y, size=(H, W), mode="bilinear", align_corners=False)  # Remove Resize
-
-        return y

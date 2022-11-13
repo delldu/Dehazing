@@ -26,7 +26,7 @@ def get_tvm_model():
     That's why we construct it from DeepGuidedFilterAdvanced
     """
 
-    model = dehaze.DehazeBackbone()
+    model = dehaze.DehazeModel()
     device = todos.model.get_device()
     model = model.to(device)
     model.eval()
@@ -39,6 +39,8 @@ def get_dehaze_model():
     """Create model."""
 
     model = dehaze.DehazeModel()
+    model = todos.model.ResizePadModel(model)
+
     device = todos.model.get_device()
     model = model.to(device)
     model.eval()
