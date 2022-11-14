@@ -447,5 +447,5 @@ class DehazeModel(nn.Module):
         rcan_out = self.pre_trained_rcan(input)
         x = torch.cat([feature, rcan_out], dim=1)
         feat_hazy = self.tail1(x)
-        return feat_hazy.clamp(0.0, 1.0)
+        return feat_hazy.clamp(0.0, 1.0) # nn.Tanh(x) in [-1.0, 1.0]
 

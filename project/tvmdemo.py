@@ -34,7 +34,7 @@ def predict(input_files, output_dir):
     todos.data.mkdir(output_dir)
 
     # load model
-    tvm_model = todos.tvmod.load("output/image_dehaze.so", "cuda")
+    tvm_model = todos.tvmod.load("output/image_dehaze.so", str(device))
 
     # load files
     image_filenames = todos.data.load_files(input_files)
