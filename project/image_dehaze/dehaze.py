@@ -429,8 +429,9 @@ class DehazeModel(nn.Module):
         super(DehazeModel, self).__init__()
         # Define max GPU/CPU memory -- 5G(2048x2048), 4G(1024x1024)
         self.MAX_H = 1024
-        self.MAX_W = 1024
+        self.MAX_W = 2048
         self.MAX_TIMES = 16
+        # GPU 6G, 900ms
 
         self.feature_extract = Dehaze()
         self.pre_trained_rcan = rcan()

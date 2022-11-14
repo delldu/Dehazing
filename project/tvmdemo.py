@@ -27,14 +27,18 @@ def compile():
     if not os.path.exists("output/image_dehaze.so"):
         input = torch.randn(SO_B, SO_C, SO_H, SO_W)
         todos.tvmod.compile(model, device, input, "output/image_dehaze.so")
-
+    todos.model.reset_device()
 
 def predict(input_files, output_dir):
     # Create directory to store result
     todos.data.mkdir(output_dir)
 
     # load model
-    tvm_model = todos.tvmod.load("output/image_dehaze.so", str(device))
+    device = todos.model.get_device()
+    if str(device) == "cpu":
+        tvm_model = todos.tvmod.load("output/image_dehaze.so", "cpu")
+    else:
+        tvm_model = todos.tvmod.load("output/image_dehaze.so", "cuda")
 
     # load files
     image_filenames = todos.data.load_files(input_files)
