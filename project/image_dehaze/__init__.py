@@ -14,15 +14,15 @@ __version__ = "1.0.0"
 import os
 from tqdm import tqdm
 import torch
-import todos
 from . import dehaze
 
+import todos
 import pdb
 
 
 def get_trace_model():
-    model = dehaze.DehazeModel()
     device = todos.model.get_device()
+    model = dehaze.DehazeModel()
     model = model.to(device)
     model.eval()
     print(f"Running tvm model model on {device} ...")

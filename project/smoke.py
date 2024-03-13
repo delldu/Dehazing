@@ -11,8 +11,8 @@
 import os
 import torch
 import image_dehaze
-
 import argparse
+import todos
 import pdb
 
 
@@ -142,6 +142,8 @@ def export_onnx_model():
     assert len(torch_outputs) == len(onnx_outputs)
     for torch_output, onnx_output in zip(torch_outputs, onnx_outputs):
         torch.testing.assert_close(torch_output, torch.tensor(onnx_output), rtol=0.01, atol=0.01)
+
+    todos.model.reset_device()
 
     print("!!!!!! Torch and ONNX Runtime output matched !!!!!!")
 

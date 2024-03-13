@@ -289,8 +289,6 @@ class Res2Net(nn.Module):
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU()
 
-        # onnx not support ???
-        # torch.max_pool2d(input, kernel_size, stride, padding, dilation, ceil_mode)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, dilation=1, padding=1, ceil_mode=False)
         self.layer1 = self._make_layer(block, 64, layers[0], stride=1)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -437,7 +435,6 @@ class Enhancer(nn.Module):
 
         return dehaze
 
-# xxxx_8888
 class Dehaze(nn.Module):
     def __init__(self):
         super().__init__()
@@ -466,8 +463,7 @@ class Dehaze(nn.Module):
         x = self.up_block1(x)
         x = self.up_block1(x)
 
-        dout2 = self.enhancer(x)
-        # torch.Size([2, 28, 256, 256])
+        dout2 = self.enhancer(x) #size() -- [2, 28, 256, 256]
 
         return dout2
 
